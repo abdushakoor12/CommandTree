@@ -2,7 +2,7 @@
   "name": "commandtree",
   "displayName": "CommandTree",
   "description": "Unified command runner: discover shell scripts, npm scripts, Makefiles, launch configs, VS Code tasks and more in one filterable tree",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": "Christian Findlay",
   "license": "MIT",
   "publisher": "nimblesite",
@@ -15,7 +15,7 @@
     "url": "https://github.com/MelbourneDeveloper/CommandTree/issues"
   },
   "engines": {
-    "vscode": "^1.109.0"
+    "vscode": "^1.110.0"
   },
   "categories": [
     "Other",
@@ -112,22 +112,19 @@
         "icon": "$(close)"
       },
       {
-        "command": "commandtree.semanticSearch",
-        "title": "Semantic Search",
-        "icon": "$(search)"
-      },
-      {
-        "command": "commandtree.generateSummaries",
-        "title": "Generate AI Summaries"
-      },
-      {
-        "command": "commandtree.selectModel",
-        "title": "CommandTree: Select AI Model"
-      },
-      {
         "command": "commandtree.openPreview",
         "title": "Open Preview",
         "icon": "$(open-preview)"
+      },
+      {
+        "command": "commandtree.generateSummaries",
+        "title": "Generate AI Summaries",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "commandtree.selectModel",
+        "title": "CommandTree: Select AI Model",
+        "icon": "$(hubot)"
       }
     ],
     "menus": {
@@ -141,11 +138,6 @@
           "command": "commandtree.clearFilter",
           "when": "view == commandtree && commandtree.hasFilter",
           "group": "navigation@3"
-        },
-        {
-          "command": "commandtree.semanticSearch",
-          "when": "view == commandtree && commandtree.aiSummariesEnabled",
-          "group": "9_search"
         },
         {
           "command": "commandtree.refresh",
@@ -376,50 +368,48 @@
     },
     "configurationDefaults": {
       "workbench.tree.indent": 16
-    },
-    "languageModels": [
-      {
-        "vendor": "copilot"
-      }
-    ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
     "rebuild": "rm -rf out && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
     "pretest": "npm run compile",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "mocha out/test/unit/**/*.test.js",
     "test:e2e": "vscode-test",
     "test:coverage": "vscode-test --coverage",
-    "coverage:check": "c8 check-coverage --lines 90 --functions 90 --branches 90 --statements 90",
+    "coverage:check": "node scripts/check-coverage.mjs",
     "clean": "rm -rf node_modules out *.vsix coverage || true",
     "package": "npm run compile && vsce package",
     "uninstall": "code --uninstall-extension nimblesite.commandtree || true",
-    "install-ext": "code --install-extension commandtree-*.vsix",
+    "install-ext": "ls commandtree-*.vsix | xargs code --install-extension",
     "build-and-install": "npm run clean && npm install && npm run uninstall && npm run package && npm run install-ext"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.6",
-    "@types/node": "^25.2.1",
-    "@types/vscode": "^1.109.0",
+    "@eslint/js": "^10.0.1",
+    "@types/glob": "^9.0.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.5.0",
+    "@types/vscode": "^1.110.0",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.4.1",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
-    "c8": "^10.1.3",
-    "eslint": "^9.39.2",
-    "glob": "^13.0.1",
-    "mocha": "^11.0.0",
-    "typescript": "^5.0.0",
-    "typescript-eslint": "^8.54.0"
+    "c8": "^11.0.0",
+    "eslint": "^10.1.0",
+    "glob": "^13.0.6",
+    "mocha": "^11.7.5",
+    "prettier": "^3.8.1",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.57.2"
   },
   "overrides": {
-    "glob": "^13.0.1"
+    "glob": "^13.0.6"
   },
   "dependencies": {
-    "node-sqlite3-wasm": "^0.8.53"
+    "node-sqlite3-wasm": "^0.8.55"
   }
 }

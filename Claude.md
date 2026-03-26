@@ -14,8 +14,7 @@ You are working with many other agents. Make sure there is effective cooperation
 - DO NOT USE GIT
 - **Functional style** - Prefer pure functions, avoid classes where possible
 - **No suppressing warnings** - Fix them properly
-- **No REGEX** It is absolutely ⛔️ illegal, and no text matching in general
-- **Don't run long runnings tasks** like docker builds, tests. Ask the user to do it!!
+- Text matching (including Regex) is illegal. Use a proper parser/treesitter. If text matching is absolutely necessary, prefer Regex
 - **Expressions over assignments** - Prefer const and immutable patterns
 - **Named parameters** - Use object params for functions with 3+ args
 - **Keep files under 450 LOC and functions under 20 LOC**
@@ -23,6 +22,7 @@ You are working with many other agents. Make sure there is effective cooperation
 - **No placeholders** - If incomplete, leave LOUD compilation error with TODO
 
 ### Typescript
+- **CENTRALIZE global state** Keep it in one type/file.
 - **TypeScript strict mode** - No `any`, no implicit types, turn all lints up to error
 - **Regularly run the linter** - Fix lint errors IMMEDIATELY
 - **Decouple providers from the VSCODE SDK** - No vscode sdk use within the providers
@@ -40,6 +40,8 @@ You are working with many other agents. Make sure there is effective cooperation
 #### Rules
 - **Prefer e2e tests over unit tests** - only unit tests for isolating bugs
 - Separate e2e tests from unit tests by file. They should not be in the same file together.
+- Tests must prove USER INTERACTIONS work
+- E2E tests should have multiple user interactions each and loads of assertions
 - Prefer adding assertions to existing tests rather than adding new tests
 - Test files in `src/test/suite/*.test.ts`
 - Run tests: `npm test`

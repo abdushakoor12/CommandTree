@@ -2,6 +2,19 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
+  {
+    ignores: [
+      "out/**",
+      "node_modules/**",
+      ".vscode-test/**",
+      "src/test/fixtures/**",
+      "coverage/**",
+      "website/**",
+      "*.js",
+      "*.mjs",
+      "*.cjs",
+    ],
+  },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
@@ -87,6 +100,18 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-asserted-optional-chain": "error",
       "@typescript-eslint/no-unnecessary-type-constraint": "error",
       "@typescript-eslint/prefer-as-const": "error",
+      "@typescript-eslint/explicit-member-accessibility": ["error", { accessibility: "explicit" }],
+      "@typescript-eslint/naming-convention": ["error",
+        { selector: "default", format: ["camelCase"] },
+        { selector: "variable", format: ["camelCase", "UPPER_CASE"] },
+        { selector: "variable", modifiers: ["const", "exported"], format: ["camelCase", "UPPER_CASE", "PascalCase"] },
+        { selector: "function", format: ["camelCase"] },
+        { selector: "parameter", format: ["camelCase"], leadingUnderscore: "allow" },
+        { selector: "typeLike", format: ["PascalCase"] },
+        { selector: "enumMember", format: ["PascalCase", "UPPER_CASE"] },
+        { selector: "property", format: null },
+        { selector: "import", format: null },
+      ],
 
       // General JS rules - ALL ERRORS
       "no-console": "error",
@@ -145,17 +170,9 @@ export default tseslint.config(
       "no-unreachable-loop": "error",
       "no-unsafe-optional-chaining": "error",
       "require-atomic-updates": "error",
+      "max-depth": ["error", 3],
+      "max-params": ["error", 3],
+      "complexity": ["error", 10],
     },
   },
-  {
-    ignores: [
-      "out/**",
-      "node_modules/**",
-      ".vscode-test/**",
-      "src/test/fixtures/**",
-      "*.js",
-      "*.mjs",
-      "*.cjs",
-    ],
-  }
 );

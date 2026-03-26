@@ -1,12 +1,21 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import type { TaskItem, MutableTaskItem } from '../models/TaskItem';
-import { generateTaskId, simplifyPath } from '../models/TaskItem';
-import { readFile, parseJson } from '../utils/fileUtils';
+import * as vscode from "vscode";
+import * as path from "path";
+import type { CommandItem, MutableCommandItem, IconDef, CategoryDef } from "../models/TaskItem";
+import { generateCommandId, simplifyPath } from "../models/TaskItem";
+import { readFile, parseJson } from "../utils/fileUtils";
+
+export const ICON_DEF: IconDef = {
+  icon: "symbol-interface",
+  color: "terminal.ansiYellow",
+};
+export const CATEGORY_DEF: CategoryDef = {
+  type: "composer",
+  label: "Composer Scripts",
+};
 
 interface ComposerJson {
-    scripts?: Record<string, string | string[]>;
-    'scripts-descriptions'?: Record<string, string>;
+  scripts?: Record<string, string | string[]>;
+  "scripts-descriptions"?: Record<string, string>;
 }
 
 /**
@@ -14,82 +23,93 @@ interface ComposerJson {
  * Only returns tasks if PHP source files (.php) exist in the workspace.
  */
 export async function discoverComposerScripts(
-    workspaceRoot: string,
-    excludePatterns: string[]
-): Promise<TaskItem[]> {
-    const exclude = `{${excludePatterns.join(',')}}`;
+  workspaceRoot: string,
+  excludePatterns: string[]
+): Promise<CommandItem[]> {
+  const exclude = `{${excludePatterns.join(",")}}`;
 
-    // Check if any PHP source files exist before processing
-    const phpFiles = await vscode.workspace.findFiles('**/*.php', exclude);
-    if (phpFiles.length === 0) {
-        return []; // No PHP source code, skip Composer scripts
-    }
+  const phpFiles = await vscode.workspace.findFiles("**/*.php", exclude);
+  if (phpFiles.length === 0) {
+    return [];
+  }
 
-    const files = await vscode.workspace.findFiles('**/composer.json', exclude);
-    const tasks: TaskItem[] = [];
+  const files = await vscode.workspace.findFiles("**/composer.json", exclude);
+  const nested = await Promise.all(files.map(async (file) => await extractScriptsFromFile(file, workspaceRoot)));
+  return nested.flat();
+}
 
-    for (const file of files) {
-        const contentResult = await readFile(file);
-        if (!contentResult.ok) {
-            continue; // Skip unreadable composer.json
-        }
+function isLifecycleHook(name: string): boolean {
+  return name.startsWith("pre-") || name.startsWith("post-");
+}
 
-        const composerResult = parseJson<ComposerJson>(contentResult.value);
-        if (!composerResult.ok) {
-            continue; // Skip malformed composer.json
-        }
+interface BuildCommandItemParams {
+  name: string;
+  command: string | string[];
+  descriptions: Record<string, string>;
+  filePath: string;
+  composerDir: string;
+  category: string;
+}
 
-        const composer = composerResult.value;
-        if (composer.scripts === undefined || typeof composer.scripts !== 'object') {
-            continue;
-        }
+function buildCommandItem(params: BuildCommandItemParams): CommandItem {
+  const description = params.descriptions[params.name] ?? getCommandPreview(params.command);
+  const task: MutableCommandItem = {
+    id: generateCommandId("composer", params.filePath, params.name),
+    label: params.name,
+    type: "composer",
+    category: params.category,
+    command: `composer run-script ${params.name}`,
+    cwd: params.composerDir,
+    filePath: params.filePath,
+    tags: [],
+  };
+  if (description !== "") {
+    task.description = description;
+  }
+  return task;
+}
 
-        const composerDir = path.dirname(file.fsPath);
-        const category = simplifyPath(file.fsPath, workspaceRoot);
-        const descriptions = composer['scripts-descriptions'] ?? {};
+async function extractScriptsFromFile(file: vscode.Uri, workspaceRoot: string): Promise<CommandItem[]> {
+  const contentResult = await readFile(file);
+  if (!contentResult.ok) {
+    return [];
+  }
 
-        for (const [name, command] of Object.entries(composer.scripts)) {
-            // Skip lifecycle hooks (pre-*, post-*)
-            if (name.startsWith('pre-') || name.startsWith('post-')) {
-                continue;
-            }
+  const composerResult = parseJson<ComposerJson>(contentResult.value);
+  if (!composerResult.ok) {
+    return [];
+  }
 
-            const description = descriptions[name] ?? getCommandPreview(command);
+  const composer = composerResult.value;
+  if (composer.scripts === undefined || typeof composer.scripts !== "object") {
+    return [];
+  }
 
-            const task: MutableTaskItem = {
-                id: generateTaskId('composer', file.fsPath, name),
-                label: name,
-                type: 'composer',
-                category,
-                command: `composer run-script ${name}`,
-                cwd: composerDir,
-                filePath: file.fsPath,
-                tags: []
-            };
-            if (description !== '') {
-                task.description = description;
-            }
-            tasks.push(task);
-        }
-    }
+  const composerDir = path.dirname(file.fsPath);
+  const category = simplifyPath(file.fsPath, workspaceRoot);
+  const descriptions = composer["scripts-descriptions"] ?? {};
 
-    return tasks;
+  return Object.entries(composer.scripts)
+    .filter(([name]) => !isLifecycleHook(name))
+    .map(([name, command]) =>
+      buildCommandItem({ name, command, descriptions, filePath: file.fsPath, composerDir, category })
+    );
 }
 
 /**
  * Gets a preview of the command for description.
  */
 function getCommandPreview(command: string | string[]): string {
-    if (Array.isArray(command)) {
-        const preview = command.join(' && ');
-        return truncate(preview, 60);
-    }
-    return truncate(command, 60);
+  if (Array.isArray(command)) {
+    const preview = command.join(" && ");
+    return truncate(preview, 60);
+  }
+  return truncate(command, 60);
 }
 
 /**
  * Truncates a string to a maximum length.
  */
 function truncate(str: string, max: number): string {
-    return str.length > max ? `${str.slice(0, max - 3)}...` : str;
+  return str.length > max ? `${str.slice(0, max - 3)}...` : str;
 }
