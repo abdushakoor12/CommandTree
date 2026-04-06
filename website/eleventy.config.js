@@ -134,6 +134,24 @@ export default function(eleventyConfig) {
       .replace("Disallow: /assets/", "Allow: /assets/images/\nDisallow: /assets/js/\nDisallow: /assets/css/");
   });
 
+  eleventyConfig.addTransform("googleAnalytics", function(content) {
+    if (!this.page.outputPath?.endsWith(".html")) {
+      return content;
+    }
+    const gaSnippet = [
+      '  <!-- Google tag (gtag.js) -->',
+      '  <script async src="https://www.googletagmanager.com/gtag/js?id=G-F1RPEMKELY"></script>',
+      '  <script>',
+      '    window.dataLayer = window.dataLayer || [];',
+      '    function gtag(){dataLayer.push(arguments);}',
+      "    gtag('js', new Date());",
+      "    gtag('config', 'G-F1RPEMKELY');",
+      '  </script>',
+      '',
+    ].join("\n");
+    return content.replace("</head>", gaSnippet + "</head>");
+  });
+
   eleventyConfig.addTransform("customScripts", function(content) {
     if (!this.page.outputPath?.endsWith(".html")) {
       return content;
