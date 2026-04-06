@@ -1,7 +1,8 @@
 ---
 layout: layouts/docs.njk
 title: Auto-Discovery of 22 Command Types - CommandTree Docs
-description: How CommandTree auto-discovers shell scripts, npm, Make, Gradle, Cargo, Maven, Docker Compose, .NET, C# Script, F# Script, and 22 command types in your VS Code workspace.
+description: How CommandTree auto-discovers shell, npm, Make, Gradle, Cargo, Maven, Docker Compose, .NET, and 22 command types in your VS Code workspace.
+date: git Last Modified
 eleventyNavigation:
   key: Command Discovery
   order: 2

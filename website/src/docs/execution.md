@@ -2,6 +2,7 @@
 layout: layouts/docs.njk
 title: Run & Debug Commands in VS Code - CommandTree Docs
 description: Execute discovered commands three ways in VS Code — new terminal, current terminal, or debugger. Supports parameterized scripts with input prompts.
+date: git Last Modified
 eleventyNavigation:
   key: Command Execution
   order: 4

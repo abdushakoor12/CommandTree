@@ -2,6 +2,7 @@
 layout: layouts/docs.njk
 title: AI-Powered Command Summaries - CommandTree Docs
 description: GitHub Copilot generates plain-language summaries and security warnings for every command CommandTree discovers. Hover to see what any script does.
+date: git Last Modified
 eleventyNavigation:
   key: AI Summaries
   order: 3

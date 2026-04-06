@@ -2,6 +2,7 @@
 layout: layouts/docs.njk
 title: Settings, Tags & Filters - CommandTree Configuration
 description: Configure CommandTree with exclude patterns, sort order, Quick Launch pins, custom tags, and text or tag-based filtering for your VS Code workspace.
+date: git Last Modified
 eleventyNavigation:
   key: Configuration
   order: 5

@@ -4,7 +4,7 @@
   "url": "https://commandtree.dev",
   "stylesheet": "/assets/css/styles.css",
   "author": "Christian Findlay",
-  "keywords": "VS Code extension, command runner, task runner, script discovery, npm scripts, shell scripts, makefile, workspace automation, developer tools",
+  "keywords": "VS Code extension, command runner, task runner, script discovery, npm scripts, shell scripts, makefile, monorepo task runner, AI tooltips, GitHub Copilot extension, AI command summaries, workspace automation, developer tools",
   "themeColor": "#2a8c7a",
   "ogImage": "/assets/images/og-image.png",
   "ogImageAlt": "CommandTree - One sidebar, every command in VS Code. Auto-discover 22 command types with AI-powered summaries.",

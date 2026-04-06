@@ -2,6 +2,7 @@
 layout: layouts/docs.njk
 title: Getting Started with CommandTree - VS Code Command Runner
 description: Install CommandTree for VS Code and discover shell scripts, npm scripts, Makefiles, and 22 command types automatically in one sidebar.
+date: git Last Modified
 eleventyNavigation:
   key: Getting Started
   order: 1
@@ -9,7 +10,7 @@ eleventyNavigation:
 
 # Getting Started
 
-CommandTree is a free VS Code extension that scans your workspace and surfaces all runnable commands — shell scripts, npm scripts, Makefiles, and 18 more types — in a single tree view sidebar panel.
+CommandTree is a free VS Code extension that scans your workspace and surfaces all runnable commands — shell scripts, npm scripts, Makefiles, and 19 more types — in a single tree view sidebar panel.
 
 ## Installation
 
@@ -60,6 +61,7 @@ code --install-extension commandtree-*.vsix
 | .NET Projects | `.csproj` / `.fsproj` |
 | C# Scripts | `.csx` files |
 | F# Scripts | `.fsx` files |
+| Mise Tasks | `.mise.toml` / `mise.toml` |
 | Markdown Files | `.md` files |
 
 Discovery respects [exclude patterns](/docs/configuration/) in settings and runs in the background. If [GitHub Copilot](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) is installed, each discovered command is automatically described in plain language — hover over any command to see what it does. Learn more about [how discovery works](/docs/discovery/) and [AI summaries](/docs/ai-summaries/).
