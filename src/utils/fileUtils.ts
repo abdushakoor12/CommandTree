@@ -10,10 +10,18 @@ export async function readFile(uri: vscode.Uri): Promise<Result<string, string>>
   try {
     const bytes = await vscode.workspace.fs.readFile(uri);
     return ok(new TextDecoder().decode(bytes));
-  } /* istanbul ignore next -- VS Code FS API does not throw in test environment */ catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error reading file";
-    return err(message);
+  } catch (e) {
+    return err((e as Error).message);
   }
+}
+
+/**
+ * Reads a file and returns its content. Throws on failure.
+ * Use in discovery modules where errors are caught by the orchestrator.
+ */
+export async function readFileContent(uri: vscode.Uri): Promise<string> {
+  const bytes = await vscode.workspace.fs.readFile(uri);
+  return new TextDecoder().decode(bytes);
 }
 
 /**
@@ -43,10 +51,10 @@ function handleStringChar(state: ParserState): boolean {
   if (!state.inString) {
     return false;
   }
-  const ch = state.content[state.pos] ?? "";
+  const ch = state.content.charAt(state.pos);
   state.out.push(ch);
   if (ch === "\\") {
-    state.out.push(state.content[state.pos + 1] ?? "");
+    state.out.push(state.content.charAt(state.pos + 1));
     state.pos += 2;
     return true;
   }
@@ -61,8 +69,8 @@ function handleStringChar(state: ParserState): boolean {
  * Handles one character outside a string: comments or literals.
  */
 function handleNonStringChar(state: ParserState): void {
-  const ch = state.content[state.pos];
-  const next = state.content[state.pos + 1];
+  const ch = state.content.charAt(state.pos);
+  const next = state.content.charAt(state.pos + 1);
 
   if (ch === '"') {
     state.inString = true;
@@ -78,7 +86,7 @@ function handleNonStringChar(state: ParserState): void {
     state.pos = skipUntilBlockEnd(state.content, state.pos);
     return;
   }
-  state.out.push(ch ?? "");
+  state.out.push(ch);
   state.pos++;
 }
 

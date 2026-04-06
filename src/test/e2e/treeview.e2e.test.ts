@@ -7,7 +7,15 @@
  */
 
 import * as assert from "assert";
-import { activateExtension, sleep, getCommandTreeProvider, getLabelString, collectLeafTasks } from "../helpers/helpers";
+import * as vscode from "vscode";
+import {
+  activateExtension,
+  sleep,
+  getCommandTreeProvider,
+  getLabelString,
+  collectLeafItems,
+  collectLeafTasks,
+} from "../helpers/helpers";
 import { type CommandTreeItem, isCommandItem } from "../../models/TaskItem";
 
 // TODO: No corresponding section in spec
@@ -139,6 +147,85 @@ suite("TreeView E2E Tests", () => {
           assert.ok(!seenTask, "Folder node must not appear after a file node — folders come first");
         }
       }
+    });
+  });
+
+  /**
+   * Executes a tree item's click command (simulates what VS Code does on click).
+   */
+  async function executeItemClick(item: CommandTreeItem): Promise<void> {
+    assert.ok(item.command !== undefined, "Item must have a click command");
+    const args = (item.command.arguments ?? []) as [vscode.Uri, ...unknown[]];
+    await vscode.commands.executeCommand(item.command.command, ...args);
+  }
+
+  suite("Make Target Line Navigation", () => {
+    test("clicking 'build' make target opens Makefile at the build target line, not the top", async function () {
+      this.timeout(20000);
+      const provider = getCommandTreeProvider();
+      const allItems = await collectLeafItems(provider);
+      const buildItem = allItems.find(
+        (i) => isCommandItem(i.data) && i.data.type === "make" && i.data.label === "build"
+      );
+      assert.ok(buildItem !== undefined, "Should find 'build' make target in tree");
+      // Execute the click command — this is what happens when the user taps the item
+      await executeItemClick(buildItem);
+      await sleep(1000);
+
+      // The editor must now be open on the Makefile
+      const editor = vscode.window.activeTextEditor;
+      assert.ok(editor !== undefined, "An editor must be open after clicking the make target");
+      assert.ok(editor.document.uri.fsPath.endsWith("Makefile"), "The open file must be the Makefile");
+
+      // The cursor must be on the build target line (line 5 in fixture, 0-indexed = 4)
+      const cursorLine = editor.selection.active.line;
+      assert.strictEqual(cursorLine, 4, "Cursor must be on line 4 (0-indexed) where 'build:' is defined — not line 0");
+    });
+
+    test("clicking 'clean' make target navigates to a different line than 'build'", async function () {
+      this.timeout(20000);
+      const provider = getCommandTreeProvider();
+      const allItems = await collectLeafItems(provider);
+      const cleanItem = allItems.find(
+        (i) => isCommandItem(i.data) && i.data.type === "make" && i.data.label === "clean"
+      );
+      assert.ok(cleanItem !== undefined, "Should find 'clean' make target in tree");
+      await executeItemClick(cleanItem);
+      await sleep(1000);
+
+      const editor = vscode.window.activeTextEditor;
+      assert.ok(editor !== undefined, "An editor must be open after clicking the make target");
+      assert.ok(editor.document.uri.fsPath.endsWith("Makefile"), "The open file must be the Makefile");
+
+      // clean: is on line 11 in the fixture (0-indexed = 10)
+      const cursorLine = editor.selection.active.line;
+      assert.strictEqual(cursorLine, 10, "Cursor must be on line 10 (0-indexed) where 'clean:' is defined");
+    });
+
+    test("each make target click navigates to its own line — not all the same line", async function () {
+      this.timeout(30000);
+      const provider = getCommandTreeProvider();
+      const allItems = await collectLeafItems(provider);
+      const makeItems = allItems.filter((i) => isCommandItem(i.data) && i.data.type === "make");
+      assert.ok(makeItems.length >= 3, "Should have at least 3 make targets to compare");
+
+      const lines: number[] = [];
+      for (const item of makeItems) {
+        await executeItemClick(item);
+        await sleep(500);
+
+        const editor = vscode.window.activeTextEditor;
+        assert.ok(editor !== undefined, "Editor must be open");
+        lines.push(editor.selection.active.line);
+      }
+
+      // If all targets opened at the top of the file, all lines would be 0
+      const uniqueLines = new Set(lines);
+      assert.ok(
+        uniqueLines.size > 1,
+        `Each make target must navigate to its own line — got ${JSON.stringify(lines)} (all same = broken)`
+      );
+      assert.ok(!lines.every((l) => l === 0), "Make targets must NOT all open at line 0 — line navigation is broken");
     });
   });
 

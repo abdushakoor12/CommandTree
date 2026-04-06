@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import type { CommandItem, ParamDef, MutableCommandItem, IconDef, CategoryDef } from "../models/TaskItem";
 import { generateCommandId, simplifyPath } from "../models/TaskItem";
-import { readFile } from "../utils/fileUtils";
+import { readFileContent } from "../utils/fileUtils";
 
 export const ICON_DEF: IconDef = {
   icon: "symbol-misc",
@@ -24,12 +24,7 @@ export async function discoverPythonScripts(workspaceRoot: string, excludePatter
   const commands: CommandItem[] = [];
 
   for (const file of files) {
-    const result = await readFile(file);
-    if (!result.ok) {
-      continue; // Skip files we can't read
-    }
-
-    const content = result.value;
+    const content = await readFileContent(file);
 
     // Skip non-runnable Python files (no main block or shebang)
     if (!isRunnablePythonScript(content)) {
@@ -192,10 +187,7 @@ function extractArgName(argsStr: string): string | undefined {
   if (firstQuote < 0) {
     return undefined;
   }
-  const quote = argsStr[firstQuote];
-  if (quote === undefined) {
-    return undefined;
-  }
+  const quote = argsStr.charAt(firstQuote);
   const endQuote = argsStr.indexOf(quote, firstQuote + 1);
   if (endQuote < 0) {
     return undefined;
@@ -234,10 +226,7 @@ function extractHelpText(argsStr: string): string | undefined {
   if (quoteStart < 0) {
     return undefined;
   }
-  const quote = afterHelp[quoteStart];
-  if (quote === undefined) {
-    return undefined;
-  }
+  const quote = afterHelp.charAt(quoteStart);
   const endQuote = afterHelp.indexOf(quote, quoteStart + 1);
   if (endQuote < 0) {
     return undefined;

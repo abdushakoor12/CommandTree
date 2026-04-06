@@ -111,9 +111,28 @@ export interface DiscoveryResult {
  * Discovers all tasks from all sources.
  */
 export async function discoverAllTasks(workspaceRoot: string, excludePatterns: string[]): Promise<DiscoveryResult> {
-  logger.info("Discovery started", { workspaceRoot });
+  logger.info("Discovery started", { workspaceRoot, excludePatterns });
 
-  // Run all discoveries in parallel
+  // Run all discoveries in parallel, wrapping each to log errors
+  const wrapDiscovery = async (
+    name: string,
+    fn: () => CommandItem[] | Promise<CommandItem[]>
+  ): Promise<CommandItem[]> => {
+    try {
+      const items = await fn();
+      if (items.length > 0) {
+        logger.info(`Discovery [${name}]`, { count: items.length });
+      }
+      return items;
+    } catch (e: unknown) {
+      logger.error(`Discovery [${name}] FAILED`, {
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      });
+      return [];
+    }
+  };
+
   const [
     shell,
     npm,
@@ -138,28 +157,28 @@ export async function discoverAllTasks(workspaceRoot: string, excludePatterns: s
     fsharpScript,
     mise,
   ] = await Promise.all([
-    discoverShellScripts(workspaceRoot, excludePatterns),
-    discoverNpmScripts(workspaceRoot, excludePatterns),
-    discoverMakeTargets(workspaceRoot, excludePatterns),
-    discoverLaunchConfigs(workspaceRoot, excludePatterns),
-    discoverVsCodeTasks(workspaceRoot, excludePatterns),
-    discoverPythonScripts(workspaceRoot, excludePatterns),
-    discoverPowerShellScripts(workspaceRoot, excludePatterns),
-    discoverGradleTasks(workspaceRoot, excludePatterns),
-    discoverCargoTasks(workspaceRoot, excludePatterns),
-    discoverMavenGoals(workspaceRoot, excludePatterns),
-    discoverAntTargets(workspaceRoot, excludePatterns),
-    discoverJustRecipes(workspaceRoot, excludePatterns),
-    discoverTaskfileTasks(workspaceRoot, excludePatterns),
-    discoverDenoTasks(workspaceRoot, excludePatterns),
-    discoverRakeTasks(workspaceRoot, excludePatterns),
-    discoverComposerScripts(workspaceRoot, excludePatterns),
-    discoverDockerComposeServices(workspaceRoot, excludePatterns),
-    discoverDotnetProjects(workspaceRoot, excludePatterns),
-    discoverMarkdownFiles(workspaceRoot, excludePatterns),
-    discoverCsharpScripts(workspaceRoot, excludePatterns),
-    discoverFsharpScripts(workspaceRoot, excludePatterns),
-    discoverMiseTasks(workspaceRoot, excludePatterns),
+    wrapDiscovery("shell", async () => await discoverShellScripts(workspaceRoot, excludePatterns)),
+    wrapDiscovery("npm", async () => await discoverNpmScripts(workspaceRoot, excludePatterns)),
+    wrapDiscovery("make", async () => await discoverMakeTargets(workspaceRoot, excludePatterns)),
+    wrapDiscovery("launch", () => discoverLaunchConfigs(workspaceRoot, excludePatterns)),
+    wrapDiscovery("vscode", async () => await discoverVsCodeTasks(workspaceRoot, excludePatterns)),
+    wrapDiscovery("python", async () => await discoverPythonScripts(workspaceRoot, excludePatterns)),
+    wrapDiscovery("powershell", async () => await discoverPowerShellScripts(workspaceRoot, excludePatterns)),
+    wrapDiscovery("gradle", async () => await discoverGradleTasks(workspaceRoot, excludePatterns)),
+    wrapDiscovery("cargo", async () => await discoverCargoTasks(workspaceRoot, excludePatterns)),
+    wrapDiscovery("maven", async () => await discoverMavenGoals(workspaceRoot, excludePatterns)),
+    wrapDiscovery("ant", async () => await discoverAntTargets(workspaceRoot, excludePatterns)),
+    wrapDiscovery("just", async () => await discoverJustRecipes(workspaceRoot, excludePatterns)),
+    wrapDiscovery("taskfile", async () => await discoverTaskfileTasks(workspaceRoot, excludePatterns)),
+    wrapDiscovery("deno", async () => await discoverDenoTasks(workspaceRoot, excludePatterns)),
+    wrapDiscovery("rake", async () => await discoverRakeTasks(workspaceRoot, excludePatterns)),
+    wrapDiscovery("composer", async () => await discoverComposerScripts(workspaceRoot, excludePatterns)),
+    wrapDiscovery("docker", async () => await discoverDockerComposeServices(workspaceRoot, excludePatterns)),
+    wrapDiscovery("dotnet", async () => await discoverDotnetProjects(workspaceRoot, excludePatterns)),
+    wrapDiscovery("markdown", async () => await discoverMarkdownFiles(workspaceRoot, excludePatterns)),
+    wrapDiscovery("csharp-script", async () => await discoverCsharpScripts(workspaceRoot, excludePatterns)),
+    wrapDiscovery("fsharp-script", async () => await discoverFsharpScripts(workspaceRoot, excludePatterns)),
+    wrapDiscovery("mise", async () => await discoverMiseTasks(workspaceRoot, excludePatterns)),
   ]);
 
   const result = {

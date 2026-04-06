@@ -5,11 +5,11 @@
  */
 
 import * as vscode from "vscode";
-import type { CommandItem, Result, CommandTreeItem } from "./models/TaskItem";
+import type { CommandItem, CommandTreeItem } from "./models/TaskItem";
 import { isCommandItem } from "./models/TaskItem";
 import { TagConfig } from "./config/TagConfig";
-import { getDb } from "./db/lifecycle";
-import { getCommandIdsByTag } from "./db/db";
+import { getDbOrThrow } from "./db/lifecycle";
+import { getCommandIdsByTag, reorderTagCommands } from "./db/db";
 import { createCommandNode, createPlaceholderNode } from "./tree/nodeFactory";
 
 const QUICK_TASK_MIME_TYPE = "application/vnd.commandtree.quicktask";
@@ -50,28 +50,22 @@ export class QuickTasksProvider
    * SPEC: quick-launch
    * Adds a command to the quick list.
    */
-  public addToQuick(task: CommandItem): Result<void, string> {
-    const result = this.tagConfig.addTaskToTag(task, QUICK_TAG);
-    if (result.ok) {
-      this.tagConfig.load();
-      this.allTasks = this.tagConfig.applyTags(this.allTasks);
-      this.onDidChangeTreeDataEmitter.fire(undefined);
-    }
-    return result;
+  public addToQuick(task: CommandItem): void {
+    this.tagConfig.addTaskToTag(task, QUICK_TAG);
+    this.tagConfig.load();
+    this.allTasks = this.tagConfig.applyTags(this.allTasks);
+    this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
   /**
    * SPEC: quick-launch
    * Removes a command from the quick list.
    */
-  public removeFromQuick(task: CommandItem): Result<void, string> {
-    const result = this.tagConfig.removeTaskFromTag(task, QUICK_TAG);
-    if (result.ok) {
-      this.tagConfig.load();
-      this.allTasks = this.tagConfig.applyTags(this.allTasks);
-      this.onDidChangeTreeDataEmitter.fire(undefined);
-    }
-    return result;
+  public removeFromQuick(task: CommandItem): void {
+    this.tagConfig.removeTaskFromTag(task, QUICK_TAG);
+    this.tagConfig.load();
+    this.allTasks = this.tagConfig.applyTags(this.allTasks);
+    this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
   /**
@@ -110,22 +104,8 @@ export class QuickTasksProvider
    * Sorts tasks by display_order from junction table.
    */
   private sortByDisplayOrder(tasks: CommandItem[]): CommandItem[] {
-    const dbResult = getDb();
-    /* istanbul ignore if -- DB is always initialised before tree views render */
-    if (!dbResult.ok) {
-      return tasks.sort((a, b) => a.label.localeCompare(b.label));
-    }
-
-    const orderedIdsResult = getCommandIdsByTag({
-      handle: dbResult.value,
-      tagName: QUICK_TAG,
-    });
-    /* istanbul ignore if -- getCommandIdsByTag SELECT cannot fail with valid DB */
-    if (!orderedIdsResult.ok) {
-      return tasks.sort((a, b) => a.label.localeCompare(b.label));
-    }
-
-    const orderedIds = orderedIdsResult.value;
+    const handle = getDbOrThrow();
+    const orderedIds = getCommandIdsByTag({ handle, tagName: QUICK_TAG });
     return [...tasks].sort((a, b) => {
       const indexA = orderedIds.indexOf(a.id);
       const indexB = orderedIds.indexOf(b.id);
@@ -164,10 +144,6 @@ export class QuickTasksProvider
     }
 
     const orderedIds = this.fetchOrderedQuickIds();
-    if (orderedIds === undefined) {
-      return;
-    }
-
     const reordered = this.computeReorder({ orderedIds, draggedTask, target });
     if (reordered === undefined) {
       return;
@@ -180,18 +156,9 @@ export class QuickTasksProvider
   /**
    * Fetches ordered command IDs for the quick tag from the DB.
    */
-  private fetchOrderedQuickIds(): string[] | undefined {
-    const dbResult = getDb();
-    /* istanbul ignore if -- DB is always initialised before tree views render */
-    if (!dbResult.ok) {
-      return undefined;
-    }
-    const orderedIdsResult = getCommandIdsByTag({
-      handle: dbResult.value,
-      tagName: QUICK_TAG,
-    });
-    /* istanbul ignore next -- getCommandIdsByTag cannot fail with valid DB handle */
-    return orderedIdsResult.ok ? orderedIdsResult.value : undefined;
+  private fetchOrderedQuickIds(): string[] {
+    const handle = getDbOrThrow();
+    return getCommandIdsByTag({ handle, tagName: QUICK_TAG });
   }
 
   /**
@@ -228,23 +195,8 @@ export class QuickTasksProvider
    * Persists display_order for each command in the reordered list.
    */
   private persistDisplayOrder(reordered: string[]): void {
-    const dbResult = getDb();
-    /* istanbul ignore if -- DB is always initialised before tree views render */
-    if (!dbResult.ok) {
-      return;
-    }
-    for (let i = 0; i < reordered.length; i++) {
-      const commandId = reordered[i];
-      if (commandId !== undefined) {
-        dbResult.value.db.run(
-          `UPDATE command_tags
-                     SET display_order = ?
-                     WHERE command_id = ?
-                     AND tag_id = (SELECT tag_id FROM tags WHERE tag_name = ?)`,
-          [i, commandId, QUICK_TAG]
-        );
-      }
-    }
+    const handle = getDbOrThrow();
+    reorderTagCommands({ handle, tagName: QUICK_TAG, orderedCommandIds: reordered });
   }
 
   /**

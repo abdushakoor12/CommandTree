@@ -24,21 +24,34 @@ export interface ExtensionExports {
 export async function activate(context: vscode.ExtensionContext): Promise<ExtensionExports | undefined> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   logger.info("Extension activating", { workspaceRoot });
-  /* istanbul ignore if -- e2e tests always run with a workspace open */
   if (workspaceRoot === undefined || workspaceRoot === "") {
     logger.warn("No workspace root found, extension not activating");
     return;
   }
-  initDatabase(workspaceRoot);
+  await initDatabaseSafe(workspaceRoot);
   treeProvider = new CommandTreeProvider(workspaceRoot);
   quickTasksProvider = new QuickTasksProvider();
   taskRunner = new TaskRunner();
   registerTreeViews(context);
   registerCommands(context);
+  setupWatchers(context, workspaceRoot);
+  await initialDiscovery(workspaceRoot);
+  initAiSummaries(workspaceRoot);
+  logger.info("Extension activation complete");
+  return { commandTreeProvider: treeProvider, quickTasksProvider };
+}
+
+async function initDatabaseSafe(workspaceRoot: string): Promise<void> {
+  const result = await initDb(workspaceRoot);
+  if (!result.ok) {
+    logger.error("Database init returned error", { error: result.error });
+  }
+}
+
+function setupWatchers(context: vscode.ExtensionContext, workspaceRoot: string): void {
   setupFileWatchers({
     context,
     onTaskFileChange: () => {
-      /* istanbul ignore next -- async Result-based functions do not throw */
       syncAndSummarise(workspaceRoot).catch((e: unknown) => {
         logger.error("Sync failed", {
           error: e instanceof Error ? e.message : "Unknown",
@@ -46,7 +59,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
       });
     },
     onConfigChange: () => {
-      /* istanbul ignore next -- async Result-based functions do not throw */
       syncTagsFromJson(workspaceRoot).catch((e: unknown) => {
         logger.error("Config sync failed", {
           error: e instanceof Error ? e.message : "Unknown",
@@ -54,19 +66,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
       });
     },
   });
-  await syncQuickTasks();
-  await registerDiscoveredCommands(workspaceRoot);
-  await syncTagsFromJson(workspaceRoot);
-  initAiSummaries(workspaceRoot);
-  return { commandTreeProvider: treeProvider, quickTasksProvider };
 }
 
-function initDatabase(workspaceRoot: string): void {
-  const result = initDb(workspaceRoot);
-  /* istanbul ignore if -- DB always initialises successfully in test environment */
-  if (!result.ok) {
-    logger.warn("SQLite init failed", { error: result.error });
-  }
+async function initialDiscovery(workspaceRoot: string): Promise<void> {
+  await syncQuickTasks();
+  logger.info("syncQuickTasks complete", { taskCount: treeProvider.getAllTasks().length });
+  await registerDiscoveredCommands(workspaceRoot);
+  await syncTagsFromJson(workspaceRoot);
 }
 
 function registerTreeViews(context: vscode.ExtensionContext): void {
@@ -304,7 +310,6 @@ async function registerDiscoveredCommands(workspaceRoot: string): Promise<void> 
   }
 }
 
-/* istanbul ignore next -- requires Copilot auth, not available in CI */
 function initAiSummaries(workspaceRoot: string): void {
   const aiConfig = vscode.workspace.getConfiguration("commandtree").get<boolean>("enableAiSummaries");
   if (aiConfig === false) {
@@ -318,7 +323,6 @@ function initAiSummaries(workspaceRoot: string): void {
   });
 }
 
-/* istanbul ignore next -- requires Copilot auth, not available in CI */
 async function runSummarisation(workspaceRoot: string): Promise<void> {
   const tasks = treeProvider.getAllTasks();
   logger.info("[SUMMARY] Starting", { taskCount: tasks.length });
@@ -359,7 +363,6 @@ function updateFilterContext(): void {
   vscode.commands.executeCommand("setContext", "commandtree.hasFilter", treeProvider.hasFilter());
 }
 
-/* istanbul ignore next -- called by VS Code on shutdown, not reachable during tests */
 export function deactivate(): void {
   disposeDb();
 }

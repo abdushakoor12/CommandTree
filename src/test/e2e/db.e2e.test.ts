@@ -29,8 +29,7 @@ suite("DB Unit Tests", () => {
     const openResult = openDatabase(dbPath);
     assert.ok(openResult.ok, "Failed to open database");
     handle = openResult.value;
-    const schemaResult = initSchema(handle);
-    assert.ok(schemaResult.ok, "Failed to init schema");
+    initSchema(handle);
   });
 
   teardown(() => {
@@ -46,25 +45,22 @@ suite("DB Unit Tests", () => {
 
   suite("addColumnIfMissing", () => {
     test("initSchema is idempotent — calling twice succeeds", () => {
-      const result = initSchema(handle);
-      assert.ok(result.ok, "Second initSchema call should succeed");
+      initSchema(handle);
     });
   });
 
   suite("registerCommand", () => {
     test("inserts new command", () => {
-      const result = registerCommand({
+      registerCommand({
         handle,
         commandId: "test-cmd-1",
         contentHash: "hash1",
       });
-      assert.ok(result.ok);
 
       const row = getRow({ handle, commandId: "test-cmd-1" });
-      assert.ok(row.ok);
-      assert.ok(row.value !== undefined);
-      assert.strictEqual(row.value.commandId, "test-cmd-1");
-      assert.strictEqual(row.value.contentHash, "hash1");
+      assert.ok(row !== undefined);
+      assert.strictEqual(row.commandId, "test-cmd-1");
+      assert.strictEqual(row.contentHash, "hash1");
     });
 
     test("upsert updates content hash on conflict", () => {
@@ -72,70 +68,61 @@ suite("DB Unit Tests", () => {
       registerCommand({ handle, commandId: "test-cmd-2", contentHash: "hash-new" });
 
       const row = getRow({ handle, commandId: "test-cmd-2" });
-      assert.ok(row.ok);
-      assert.ok(row.value !== undefined);
-      assert.strictEqual(row.value.contentHash, "hash-new");
+      assert.ok(row !== undefined);
+      assert.strictEqual(row.contentHash, "hash-new");
     });
   });
 
   suite("getRow", () => {
     test("returns undefined for non-existent command", () => {
       const result = getRow({ handle, commandId: "nonexistent" });
-      assert.ok(result.ok);
-      assert.strictEqual(result.value, undefined);
+      assert.strictEqual(result, undefined);
     });
   });
 
   suite("tag operations", () => {
     test("addTagToCommand creates tag and junction record", () => {
       registerCommand({ handle, commandId: "cmd-tag-1", contentHash: "h1" });
-      const result = addTagToCommand({
+      addTagToCommand({
         handle,
         commandId: "cmd-tag-1",
         tagName: "build",
       });
-      assert.ok(result.ok);
 
       const ids = getCommandIdsByTag({ handle, tagName: "build" });
-      assert.ok(ids.ok);
-      assert.ok(ids.value.length > 0);
-      assert.ok(ids.value.includes("cmd-tag-1"));
+      assert.ok(ids.length > 0);
+      assert.ok(ids.includes("cmd-tag-1"));
     });
 
     test("addTagToCommand is idempotent", () => {
       registerCommand({ handle, commandId: "cmd-tag-2", contentHash: "h2" });
       addTagToCommand({ handle, commandId: "cmd-tag-2", tagName: "deploy" });
-      const result = addTagToCommand({ handle, commandId: "cmd-tag-2", tagName: "deploy" });
-      assert.ok(result.ok);
+      addTagToCommand({ handle, commandId: "cmd-tag-2", tagName: "deploy" });
 
       const ids = getCommandIdsByTag({ handle, tagName: "deploy" });
-      assert.ok(ids.ok);
-      assert.strictEqual(ids.value.filter((id) => id === "cmd-tag-2").length, 1);
+      assert.strictEqual(ids.filter((id) => id === "cmd-tag-2").length, 1);
     });
 
     test("removeTagFromCommand removes junction record", () => {
       registerCommand({ handle, commandId: "cmd-tag-3", contentHash: "h3" });
       addTagToCommand({ handle, commandId: "cmd-tag-3", tagName: "test" });
-      const removeResult = removeTagFromCommand({
+      removeTagFromCommand({
         handle,
         commandId: "cmd-tag-3",
         tagName: "test",
       });
-      assert.ok(removeResult.ok);
 
       const ids = getCommandIdsByTag({ handle, tagName: "test" });
-      assert.ok(ids.ok);
-      assert.ok(!ids.value.includes("cmd-tag-3"));
+      assert.ok(!ids.includes("cmd-tag-3"));
     });
 
     test("removeTagFromCommand succeeds for non-existent tag", () => {
       registerCommand({ handle, commandId: "cmd-tag-4", contentHash: "h4" });
-      const result = removeTagFromCommand({
+      removeTagFromCommand({
         handle,
         commandId: "cmd-tag-4",
         tagName: "nonexistent",
       });
-      assert.ok(result.ok);
     });
 
     test("getAllTagNames returns all distinct tags", () => {
@@ -144,9 +131,8 @@ suite("DB Unit Tests", () => {
       addTagToCommand({ handle, commandId: "cmd-tags-5", tagName: "beta" });
 
       const result = getAllTagNames(handle);
-      assert.ok(result.ok);
-      assert.ok(result.value.includes("alpha"));
-      assert.ok(result.value.includes("beta"));
+      assert.ok(result.includes("alpha"));
+      assert.ok(result.includes("beta"));
     });
   });
 

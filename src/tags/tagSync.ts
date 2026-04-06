@@ -3,7 +3,7 @@ import * as path from "path";
 import type { CommandItem } from "../models/TaskItem";
 import type { DbHandle } from "../db/db";
 import { addTagToCommand, removeTagFromCommand, getCommandIdsByTag } from "../db/db";
-import { getDb } from "../db/lifecycle";
+import { getDbOrThrow } from "../db/lifecycle";
 import { logger } from "../utils/logger";
 
 interface TagPattern {
@@ -90,28 +90,13 @@ export function syncTagsFromConfig({
   if (config?.tags === undefined) {
     return false;
   }
-  const dbResult = getDb();
-  /* istanbul ignore if -- DB is always initialised before tag sync runs */
-  if (!dbResult.ok) {
-    logger.warn("DB not available, skipping tag sync", {
-      error: dbResult.error,
-    });
-    return false;
+  const handle = getDbOrThrow();
+  for (const [tagName, patterns] of Object.entries(config.tags)) {
+    const existingIds = getCommandIdsByTag({ handle, tagName });
+    const currentIds = new Set(existingIds);
+    const matchedIds = collectMatchedIds(patterns, allTasks);
+    syncTagDiff({ handle, tagName, currentIds, matchedIds });
   }
-  try {
-    for (const [tagName, patterns] of Object.entries(config.tags)) {
-      const existingIds = getCommandIdsByTag({ handle: dbResult.value, tagName });
-      const currentIds = existingIds.ok ? new Set(existingIds.value) : new Set<string>();
-      const matchedIds = collectMatchedIds(patterns, allTasks);
-      syncTagDiff({ handle: dbResult.value, tagName, currentIds, matchedIds });
-    }
-    logger.info("Tag sync complete");
-    return true;
-  } /* istanbul ignore next -- DB functions return Result types and never throw in practice */ catch (e) {
-    logger.error("Tag sync failed", {
-      error: e instanceof Error ? e.message : "Unknown",
-      stack: e instanceof Error ? e.stack : undefined,
-    });
-    return false;
-  }
+  logger.info("Tag sync complete");
+  return true;
 }
