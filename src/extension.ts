@@ -11,6 +11,7 @@ import { createVSCodeFileSystem } from "./semantic/vscodeAdapters";
 import { forceSelectModel } from "./semantic/summariser";
 import { syncTagsFromConfig } from "./tags/tagSync";
 import { setupFileWatchers } from "./watchers";
+import { PrivateTaskDecorationProvider } from "./tree/PrivateTaskDecorationProvider";
 
 let treeProvider: CommandTreeProvider;
 let quickTasksProvider: QuickTasksProvider;
@@ -26,7 +27,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Extens
   logger.info("Extension activating", { workspaceRoot });
   if (workspaceRoot === undefined || workspaceRoot === "") {
     logger.warn("No workspace root found, extension not activating");
-    return;
+    return undefined;
   }
   await initDatabaseSafe(workspaceRoot);
   treeProvider = new CommandTreeProvider(workspaceRoot);
@@ -85,7 +86,8 @@ function registerTreeViews(context: vscode.ExtensionContext): void {
       treeDataProvider: quickTasksProvider,
       showCollapseAll: true,
       dragAndDropController: quickTasksProvider,
-    })
+    }),
+    vscode.window.registerFileDecorationProvider(new PrivateTaskDecorationProvider())
   );
 }
 

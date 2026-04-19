@@ -96,6 +96,7 @@ export interface CommandItem {
   readonly description?: string;
   readonly summary?: string;
   readonly securityWarning?: string;
+  readonly isPhony?: boolean;
   readonly line?: number;
 }
 
@@ -115,6 +116,7 @@ export interface MutableCommandItem {
   description?: string;
   summary?: string;
   securityWarning?: string;
+  isPhony?: boolean;
   line?: number;
 }
 
@@ -158,6 +160,7 @@ export interface CommandTreeItemProps {
   readonly tooltip?: vscode.MarkdownString;
   readonly description?: string;
   readonly command?: vscode.Command;
+  readonly resourceUri?: vscode.Uri;
 }
 
 /**
@@ -176,6 +179,10 @@ export class CommandTreeItem extends vscode.TreeItem {
     this.children = props.children;
     this.id = props.id;
     this.contextValue = props.contextValue;
+    this.applyOptionalProps(props);
+  }
+
+  private applyOptionalProps(props: CommandTreeItemProps): void {
     if (props.iconPath !== undefined) {
       this.iconPath = props.iconPath;
     }
@@ -187,6 +194,9 @@ export class CommandTreeItem extends vscode.TreeItem {
     }
     if (props.command !== undefined) {
       this.command = props.command;
+    }
+    if (props.resourceUri !== undefined) {
+      this.resourceUri = props.resourceUri;
     }
   }
 }
@@ -216,4 +226,16 @@ export function simplifyPath(filePath: string, workspaceRoot: string): string {
  */
 export function generateCommandId(type: CommandType, filePath: string, name: string): string {
   return `${type}:${filePath}:${name}`;
+}
+
+function supportsPrivateTaskStyling(type: CommandType): boolean {
+  return type === "make" || type === "mise";
+}
+
+export function isPrivateTask(task: CommandItem): boolean {
+  return supportsPrivateTaskStyling(task.type) && task.label.startsWith("_");
+}
+
+export function isPhonyTask(task: CommandItem): boolean {
+  return task.type === "make" && task.isPhony === true;
 }

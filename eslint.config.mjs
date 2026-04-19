@@ -31,6 +31,14 @@ export default tseslint.config(
     rules: {
       // ALL RULES SET TO ERROR - NO WARNINGS
 
+      // Additional critical rules (NOT enabled by any preset)
+      "@typescript-eslint/no-deprecated": "error",
+      "@typescript-eslint/consistent-return": "error",
+      "@typescript-eslint/prefer-literal-enum-member": "error",
+      "@typescript-eslint/require-array-sort-compare": "error",
+      // Object destructuring only — `arr[0]` is idiomatic and noisier than a destructure.
+      "@typescript-eslint/prefer-destructuring": ["error", { array: false, object: true }],
+
       // TypeScript strict rules
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/explicit-function-return-type": "error",

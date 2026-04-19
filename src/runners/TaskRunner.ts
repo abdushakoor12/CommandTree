@@ -22,7 +22,16 @@ function showError(message: string): void {
  */
 export type RunMode = "newTerminal" | "currentTerminal";
 
-const SHELL_INTEGRATION_TIMEOUT_MS = 50;
+// Upper bound on waiting for shell integration to activate. Both SI
+// `executeCommand` and `sendText` internally call xterm `scrollToBottom`,
+// so the paint delay below applies to both paths (command-execution spec).
+const SHELL_INTEGRATION_TIMEOUT_MS = 2000;
+// Delay after shell spawn before touching the terminal. xterm lays out on
+// DOM paint after `terminal.show()`; on a busy CI host with xvfb this can
+// take over a second, so we wait long enough that the viewport and its
+// `dimensions` are populated before any send — otherwise xterm's
+// `scrollToBottom` throws a TypeError (command-execution spec).
+const XTERM_PAINT_DELAY_MS = 1500;
 
 /**
  * Executes commands based on their type.
@@ -142,7 +151,7 @@ export class TaskRunner {
       terminalOptions.cwd = task.cwd;
     }
     const terminal = vscode.window.createTerminal(terminalOptions);
-    terminal.show();
+    terminal.show(true);
     this.executeInTerminal(terminal, command);
   }
 
@@ -163,7 +172,7 @@ export class TaskRunner {
       terminal = vscode.window.createTerminal(terminalOptions);
     }
 
-    terminal.show();
+    terminal.show(true);
 
     const fullCommand = task.cwd !== undefined && task.cwd !== "" ? `cd "${task.cwd}" && ${command}` : command;
 
@@ -171,34 +180,44 @@ export class TaskRunner {
   }
 
   /**
-   * Executes a command in a terminal using shell integration when available.
-   * Waits for shell integration to activate on new terminals, falling back
-   * to sendText if it doesn't become available within the timeout.
+   * Executes a command in a terminal. Always defers the send until the
+   * shell process has spawned and the xterm viewport has had time to
+   * paint — both shell integration's `executeCommand` and `sendText`
+   * internally call xterm `scrollToBottom`, which throws a TypeError if
+   * the viewport's `dimensions` are not yet populated
+   * (command-execution spec).
    */
   private executeInTerminal(terminal: vscode.Terminal, command: string): void {
-    if (terminal.shellIntegration !== undefined) {
-      terminal.shellIntegration.executeCommand(command);
-      return;
-    }
-    this.waitForShellIntegration(terminal, command);
+    this.executeWhenReady(terminal, command).catch(() => undefined);
   }
 
-  private waitForShellIntegration(terminal: vscode.Terminal, command: string): void {
-    let resolved = false;
-    const listener = vscode.window.onDidChangeTerminalShellIntegration(({ terminal: t, shellIntegration }) => {
-      if (t === terminal && !resolved) {
-        resolved = true;
-        listener.dispose();
-        this.safeSendText(terminal, command, shellIntegration);
-      }
+  private async executeWhenReady(terminal: vscode.Terminal, command: string): Promise<void> {
+    await terminal.processId;
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, XTERM_PAINT_DELAY_MS);
     });
-    setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        listener.dispose();
-        this.safeSendText(terminal, command);
-      }
-    }, SHELL_INTEGRATION_TIMEOUT_MS);
+    const si = terminal.shellIntegration ?? (await this.awaitShellIntegration(terminal));
+    this.safeSendText(terminal, command, si);
+  }
+
+  private async awaitShellIntegration(terminal: vscode.Terminal): Promise<vscode.TerminalShellIntegration | undefined> {
+    return await new Promise<vscode.TerminalShellIntegration | undefined>((resolve) => {
+      let done = false;
+      const listener = vscode.window.onDidChangeTerminalShellIntegration(({ terminal: t, shellIntegration }) => {
+        if (t === terminal && !done) {
+          done = true;
+          listener.dispose();
+          resolve(shellIntegration);
+        }
+      });
+      setTimeout(() => {
+        if (!done) {
+          done = true;
+          listener.dispose();
+          resolve(undefined);
+        }
+      }, SHELL_INTEGRATION_TIMEOUT_MS);
+    });
   }
 
   /**
@@ -225,7 +244,7 @@ export class TaskRunner {
    * Builds the full command string with formatted parameters.
    */
   private buildCommand(task: CommandItem, params: Array<{ def: ParamDef; value: string }>): string {
-    let command = task.command;
+    let { command } = task;
     const parts: string[] = [];
 
     for (const { def, value } of params) {
@@ -264,6 +283,10 @@ export class TaskRunner {
       }
       case "dashdash-args": {
         return `-- ${value}`;
+      }
+      default: {
+        const exhaustive: never = format;
+        return exhaustive;
       }
     }
   }
