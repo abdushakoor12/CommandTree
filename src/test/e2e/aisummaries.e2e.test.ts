@@ -21,6 +21,32 @@ import {
   collectLeafItems,
 } from "../helpers/helpers";
 
+interface WarningMessagePatch {
+  readonly messages: string[];
+  readonly restore: () => void;
+}
+
+function patchWarningMessages(): WarningMessagePatch {
+  const messages: string[] = [];
+  const original = vscode.window.showWarningMessage;
+  Object.defineProperty(vscode.window, "showWarningMessage", {
+    configurable: true,
+    value: async (message: string): Promise<string | undefined> => {
+      messages.push(message);
+      return await Promise.resolve(undefined);
+    },
+  });
+  return {
+    messages,
+    restore: () => {
+      Object.defineProperty(vscode.window, "showWarningMessage", {
+        configurable: true,
+        value: original,
+      });
+    },
+  };
+}
+
 suite("AI Summary E2E Tests", () => {
   suiteSetup(async function () {
     this.timeout(30000);
@@ -102,6 +128,40 @@ suite("AI Summary E2E Tests", () => {
       await config.update("aiModel", undefined, vscode.ConfigurationTarget.Global);
       const savedId = config.get("aiModel", "");
       assert.strictEqual(savedId, "", "aiModel must default to empty string (triggers picker on first use)");
+    });
+
+    test("generateSummaries shows disabled warning and does not add summaries", async function () {
+      this.timeout(10000);
+      const warningPatch = patchWarningMessages();
+      try {
+        await vscode.commands.executeCommand("commandtree.generateSummaries");
+      } finally {
+        warningPatch.restore();
+      }
+      assert.ok(
+        warningPatch.messages.some((message) => message.includes("AI summaries are temporarily disabled")),
+        "generateSummaries must warn that AI summaries are temporarily disabled"
+      );
+      const tasks = await collectLeafTasks(getCommandTreeProvider());
+      const withSummary = tasks.filter((t) => t.summary !== undefined && t.summary !== "");
+      assert.strictEqual(withSummary.length, 0, "Disabled summaries command must not add any summaries to tasks");
+    });
+
+    test("selectModel shows disabled warning and leaves aiModel unchanged", async function () {
+      this.timeout(10000);
+      const config = vscode.workspace.getConfiguration("commandtree");
+      await config.update("aiModel", "", vscode.ConfigurationTarget.Global);
+      const warningPatch = patchWarningMessages();
+      try {
+        await vscode.commands.executeCommand("commandtree.selectModel");
+      } finally {
+        warningPatch.restore();
+      }
+      assert.ok(
+        warningPatch.messages.some((message) => message.includes("AI model selection is temporarily disabled")),
+        "selectModel must warn that AI model selection is temporarily disabled"
+      );
+      assert.strictEqual(config.get("aiModel", ""), "", "Disabled selectModel must not change the saved aiModel");
     });
 
     test("@exclude-ci generateSummaries produces actual summaries on tasks", async function () {
