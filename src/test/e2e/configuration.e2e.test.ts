@@ -25,6 +25,7 @@ interface PackageJsonConfig {
       properties: {
         "commandtree.excludePatterns": ConfigurationProperty;
         "commandtree.sortOrder": ConfigurationProperty;
+        "commandtree.enableAiSummaries": ConfigurationProperty;
       };
     };
   };
@@ -112,6 +113,15 @@ suite("Configuration and File Watchers E2E Tests", () => {
       assert.ok(enumDescriptions[0]?.includes("folder") === true, "First should describe folder");
       assert.ok(enumDescriptions[1]?.includes("name") === true, "Second should describe name");
       assert.ok(enumDescriptions[2]?.includes("type") === true, "Third should describe type");
+    });
+
+    test("enableAiSummaries defaults to false", function () {
+      this.timeout(10000);
+
+      const packageJson = readExtensionPackageJson();
+      const defaultValue = packageJson.contributes.configuration.properties["commandtree.enableAiSummaries"].default;
+
+      assert.strictEqual(defaultValue, false, "enableAiSummaries should default to false");
     });
   });
 

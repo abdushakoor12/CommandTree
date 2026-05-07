@@ -1,7 +1,5 @@
 /**
- * Exercises the summary + security-warning rendering branches in the tree:
- * createCommandNode label prefix, buildTooltip warning/summary sections,
- * and CommandTreeProvider.attachSummaries wiring.
+ * Ensures DB-seeded AI summary content stays hidden while the feature is disabled.
  *
  * A real AI pipeline only runs with Copilot auth (excluded from CI), so this
  * test seeds the SQLite summary row directly via the DB's public API.
@@ -28,7 +26,7 @@ suite("Summary and Security Warning Rendering E2E Tests", () => {
     await activateExtension();
   });
 
-  test("tree item reflects summary and security warning seeded in the DB", async function () {
+  test("tree item hides summary and security warning seeded in the DB while AI summaries are disabled", async function () {
     this.timeout(20000);
 
     await refreshTasks();
@@ -51,18 +49,22 @@ suite("Summary and Security Warning Rendering E2E Tests", () => {
     const all = provider.getAllTasks();
     const updated = all.find((t) => t.id === target.id);
     assert.ok(updated !== undefined, "Task should still be in the tree after refresh");
-    assert.strictEqual(updated.summary, SUMMARY_TEXT, "Task should carry the seeded summary");
-    assert.strictEqual(updated.securityWarning, WARNING_TEXT, "Task should carry the seeded security warning");
+    assert.strictEqual(updated.summary, undefined, "Task should not expose seeded summary while AI summaries are off");
+    assert.strictEqual(
+      updated.securityWarning,
+      undefined,
+      "Task should not expose seeded security warning while AI summaries are off"
+    );
 
     const item = await findItemById(target.id);
     assert.ok(item !== undefined, `Must find the command node for ${target.id} in the rendered tree`);
 
     const labelText = typeof item.label === "string" ? item.label : (item.label?.label ?? "");
-    assert.ok(labelText.includes("⚠"), "Label must carry the warning glyph when a security warning is set");
+    assert.ok(!labelText.includes("⚠"), "Label must not carry the warning glyph while AI summaries are off");
 
     const tooltip = getTooltipText(item);
-    assert.ok(tooltip.includes(WARNING_TEXT), "Tooltip must render the security warning");
-    assert.ok(tooltip.includes(SUMMARY_TEXT), "Tooltip must render the summary");
+    assert.ok(!tooltip.includes(WARNING_TEXT), "Tooltip must not render the seeded security warning");
+    assert.ok(!tooltip.includes(SUMMARY_TEXT), "Tooltip must not render the seeded summary");
   });
 });
 

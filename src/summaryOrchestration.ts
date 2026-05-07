@@ -5,12 +5,16 @@
 import * as vscode from "vscode";
 import type { CommandTreeProvider } from "./CommandTreeProvider";
 import type { QuickTasksProvider } from "./QuickTasksProvider";
+import { aiSummariesTemporarilyDisabled } from "./aiSummaryState";
 import type { Result } from "./models/Result";
 import { ok } from "./models/Result";
 import { logger } from "./utils/logger";
 import { summariseAllTasks, registerAllCommands } from "./semantic/summaryPipeline";
 import { createVSCodeFileSystem } from "./semantic/vscodeAdapters";
 import type { ModelSelectionMode } from "./semantic/summariser";
+
+const AI_SUMMARIES_DISABLED_MESSAGE =
+  "CommandTree: AI summaries are temporarily disabled while we investigate unexpected Copilot billing.";
 
 export interface SummaryDeps {
   readonly workspaceRoot: string;
@@ -24,7 +28,17 @@ interface RunSummaryParams extends SummaryDeps {
 
 function aiSummariesEnabled(): boolean {
   const aiConfig = vscode.workspace.getConfiguration("commandtree").get<boolean>("enableAiSummaries");
-  return aiConfig !== false;
+  return !aiSummariesTemporarilyDisabled() && aiConfig !== false;
+}
+
+function setAiSummariesContext(enabled: boolean): void {
+  vscode.commands.executeCommand("setContext", "commandtree.aiSummariesEnabled", enabled).then(undefined, () => {
+    logger.warn("Failed to update AI summaries context", { enabled });
+  });
+}
+
+function showAiSummariesDisabledMessage(): void {
+  vscode.window.showWarningMessage(AI_SUMMARIES_DISABLED_MESSAGE);
 }
 
 async function refreshSummaryViews(params: SummaryDeps): Promise<void> {
@@ -68,10 +82,10 @@ export async function registerDiscoveredCommands(params: SummaryDeps): Promise<v
 }
 
 export function initAiSummaries(params: SummaryDeps): void {
+  setAiSummariesContext(aiSummariesEnabled());
   if (!aiSummariesEnabled()) {
     return;
   }
-  vscode.commands.executeCommand("setContext", "commandtree.aiSummariesEnabled", true);
   runSummarisation({ ...params, modelSelectionMode: "automatic" }).catch((e: unknown) => {
     logger.error("AI summarisation failed", {
       error: e instanceof Error ? e.message : "Unknown",
@@ -80,6 +94,10 @@ export function initAiSummaries(params: SummaryDeps): void {
 }
 
 export async function runSummarisation(params: RunSummaryParams): Promise<void> {
+  if (aiSummariesTemporarilyDisabled()) {
+    showAiSummariesDisabledMessage();
+    return;
+  }
   const summaryResult = await summariseCurrentTasks(params);
   if (!summaryResult.ok) {
     logger.error("Summary pipeline failed", { error: summaryResult.error });

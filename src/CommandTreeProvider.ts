@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { aiSummariesTemporarilyDisabled } from "./aiSummaryState";
 import { isCommandItem, isPrivateTask } from "./models/TaskItem";
 import type { CommandItem, CategoryDef } from "./models/TaskItem";
 import type { CommandTreeItem } from "./models/TaskItem";
@@ -90,6 +91,10 @@ export class CommandTreeProvider
   }
 
   private loadSummaries(): void {
+    if (aiSummariesTemporarilyDisabled()) {
+      this.summaries = new Map();
+      return;
+    }
     const handle = getDbOrThrow();
     const rows = getAllRows(handle);
     const map = new Map<string, CommandRow>();

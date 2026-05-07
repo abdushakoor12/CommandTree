@@ -10,6 +10,7 @@ import { TaskRunner } from "./runners/TaskRunner";
 import { QuickTasksProvider } from "./QuickTasksProvider";
 import { logger } from "./utils/logger";
 import { initDb, disposeDb } from "./db/lifecycle";
+import { aiSummariesTemporarilyDisabled } from "./aiSummaryState";
 import { forceSelectModel } from "./semantic/summariser";
 import { syncTagsFromConfig } from "./tags/tagSync";
 import { setupFileWatchers } from "./watchers";
@@ -209,6 +210,12 @@ function registerFilterCommands(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.commands.registerCommand("commandtree.selectModel", async () => {
+      if (aiSummariesTemporarilyDisabled()) {
+        vscode.window.showWarningMessage(
+          "CommandTree: AI model selection is temporarily disabled while AI summaries are turned off."
+        );
+        return;
+      }
       const result = await forceSelectModel();
       if (result.ok) {
         vscode.window.showInformationMessage(`CommandTree: AI model set to ${result.value}`);
