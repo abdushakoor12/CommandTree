@@ -112,8 +112,8 @@ function patchErrorMessages(): { messages: string[]; restore: () => void } {
   };
 }
 
-function patchExecuteCommand(): { calls: { command: string; args: unknown[] }[]; restore: () => void } {
-  const calls: { command: string; args: unknown[] }[] = [];
+function patchExecuteCommand(): { calls: Array<{ command: string; args: unknown[] }>; restore: () => void } {
+  const calls: Array<{ command: string; args: unknown[] }> = [];
   const original = vscode.commands.executeCommand;
   Object.defineProperty(vscode.commands, "executeCommand", {
     configurable: true,
@@ -165,10 +165,14 @@ suite("Summary Orchestration E2E Tests", () => {
       summaryPatch.restore();
     }
     assert.strictEqual(harness.getRefreshCount(), 1, "Successful summarisation should refresh the tree once");
-    assert.strictEqual(harness.getUpdatedTasks(), 1, "Successful summarisation should refresh quick tasks from the tree");
+    assert.strictEqual(
+      harness.getUpdatedTasks(),
+      1,
+      "Successful summarisation should refresh quick tasks from the tree"
+    );
     assert.ok(
       infoPatch.messages.includes("CommandTree: Summarised 2 commands"),
-      "Successful summarisation should report the summarised command count",
+      "Successful summarisation should report the summarised command count"
     );
   });
 
@@ -187,7 +191,7 @@ suite("Summary Orchestration E2E Tests", () => {
     }
     assert.ok(
       errorPatch.messages.includes("CommandTree: Summary failed — boom"),
-      "Failed summarisation should surface the pipeline error to the user",
+      "Failed summarisation should surface the pipeline error to the user"
     );
   });
 
@@ -229,7 +233,7 @@ suite("Summary Orchestration E2E Tests", () => {
     assert.deepStrictEqual(
       executePatch.calls,
       [{ command: "setContext", args: ["commandtree.aiSummariesEnabled", false] }],
-      "Disabled init must only set the false context flag",
+      "Disabled init must only set the false context flag"
     );
   });
 });
