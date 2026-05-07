@@ -11,6 +11,7 @@ import { logger } from "./utils/logger";
 import { summariseAllTasks, registerAllCommands } from "./semantic/summaryPipeline";
 import { createVSCodeFileSystem } from "./semantic/vscodeAdapters";
 import type { ModelSelectionMode } from "./semantic/summariser";
+import { aiSummariesTemporarilyDisabled } from "./aiSummaryState";
 
 export interface SummaryDeps {
   readonly workspaceRoot: string;
@@ -23,10 +24,11 @@ interface RunSummaryParams extends SummaryDeps {
 }
 
 function aiSummariesEnabled(): boolean {
-  // [HOTFIX] Disabled due to budget constraints; restore below line to re-enable
-  // const aiConfig = vscode.workspace.getConfiguration("commandtree").get<boolean>("enableAiSummaries");
-  // return aiConfig !== false;
-  return false;
+  if (aiSummariesTemporarilyDisabled()) {
+    return false;
+  }
+  const aiConfig = vscode.workspace.getConfiguration("commandtree").get<boolean>("enableAiSummaries");
+  return aiConfig !== false;
 }
 
 async function refreshSummaryViews(params: SummaryDeps): Promise<void> {
@@ -70,10 +72,11 @@ export async function registerDiscoveredCommands(params: SummaryDeps): Promise<v
 }
 
 export function initAiSummaries(params: SummaryDeps): void {
-  if (!aiSummariesEnabled()) {
+  const enabled = aiSummariesEnabled();
+  vscode.commands.executeCommand("setContext", "commandtree.aiSummariesEnabled", enabled);
+  if (!enabled) {
     return;
   }
-  vscode.commands.executeCommand("setContext", "commandtree.aiSummariesEnabled", true);
   runSummarisation({ ...params, modelSelectionMode: "automatic" }).catch((e: unknown) => {
     logger.error("AI summarisation failed", {
       error: e instanceof Error ? e.message : "Unknown",
