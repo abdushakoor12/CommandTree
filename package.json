@@ -130,8 +130,7 @@
         "command": "commandtree.makeExecutable",
         "title": "Make Executable",
         "icon": "$(unlock)"
-      },
-
+      }
     ],
     "menus": {
       "view/title": [
