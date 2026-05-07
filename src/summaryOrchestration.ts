@@ -23,8 +23,10 @@ interface RunSummaryParams extends SummaryDeps {
 }
 
 function aiSummariesEnabled(): boolean {
-  const aiConfig = vscode.workspace.getConfiguration("commandtree").get<boolean>("enableAiSummaries");
-  return aiConfig !== false;
+  // [HOTFIX] Disabled due to budget constraints; restore below line to re-enable
+  // const aiConfig = vscode.workspace.getConfiguration("commandtree").get<boolean>("enableAiSummaries");
+  // return aiConfig !== false;
+  return false;
 }
 
 async function refreshSummaryViews(params: SummaryDeps): Promise<void> {
